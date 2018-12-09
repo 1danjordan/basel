@@ -1,10 +1,12 @@
 # Basel
 
-Basel is an R package for calculating capital requirements according to Basel III. It's primary purpose is as a learning device. I'm developing it to better understand how capital requirements are calculated, why they are calculated this way and what it is sensitive to.
+[High level summary of Basel III reforms](https://www.bis.org/bcbs/publ/d424_hlsummary.pdf)
 
-This package follows the standardised approach for measuring counterparty credit risk (SA-CCR) exposures which took affect in January 2017. You can find out more about SA-CCR [here](https://www.bis.org/publ/bcbs279.htm).
+Basel is an R package for calculating capital requirements according to Basel III. It's primary purpose is as a learning vehicle for myself. I'm developing it to better understand how capital requirements are calculated, why they are calculated this way and what they are sensitive to.
 
-SA-CRR is a bottom up risk framework, where the loss distribution for each position is estimated and capital is computed by combining these loss distributions together to define the portfolio's loss distribution. There are many advantages and disadvantages to this approach. 
+## Counter Party Credit Risk
+
+You can find out more about SA-CCR [here](https://www.bis.org/publ/bcbs279.htm).
 
 ## Asymptotic Single Factor Model
 
@@ -46,6 +48,4 @@ Three frameworks currently:
 
 # Market Risk
 
-I have't a clue about this...
-
-Check out this [BIS page](https://www.bis.org/bcbs/publ/d437.htm). BIS published new market risk guidelines in 2016. 
+[This](https://www.bis.org/bcbs/publ/d352.pdf) Basel paper and its [explanatory note](https://www.bis.org/bcbs/publ/d352_note.pdf). Then there is this [BIS page](https://www.bis.org/bcbs/publ/d437.htm) for FAQs.
