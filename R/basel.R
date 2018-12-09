@@ -33,7 +33,7 @@ unexpected_loss <- function(PD, EAD, LGD) {
 
 capital_requirement <- function(PD, EAD, LGD, portfolio) {
 
-  if(portfolio == "corporate") {
+  if (portfolio == "corporate") {
     # compute correlation
     weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
     R <- 0.12 * weighting + 0.24 * (1 - weighting)
@@ -41,8 +41,15 @@ capital_requirement <- function(PD, EAD, LGD, portfolio) {
     # maturity adjustment
     b <- (0.11852 - 0.05478 * log(PD))^2
 
-    # K <- ...
-  } else if(portfolio == "SME") {
+    # G() is the inverse normal distribution
+    xyz <- sqrt(1/(1-R)) * G(PD) + sqrt(R/(1-R)) * G(0.999)
+
+    # b() is ...?
+    maturity_adjustment <- ((1 + (M - 2.5)) * b(PD)) / (1 - 1.5 * b(PD))
+
+    K <- (LGD * dnorm(xyz) - LGD * PD) * maturity_adjustment
+
+  } else if (portfolio == "SME") {
     weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
 
     # S is "size adjustment for annual sales between €5M and €50M"
@@ -50,20 +57,21 @@ capital_requirement <- function(PD, EAD, LGD, portfolio) {
     R <- 0.12 * weighting + 0.24 * (1 - weighting) - 0.04 * (1 - (S-5)/45)
 
 
-  } else if(portfolio == "revolving") {
+  } else if (portfolio == "revolving") {
     R <- 0.04
 
 
-  } else if(portfolio == "mortgage") {
+  } else if (portfolio == "mortgage") {
     R <- 0.15
 
 
-  } else if(portfolio == "other"){
+  } else if (portfolio == "other"){
     # See the Basel explanatory note
     # Correlation is same as Basel but low/high correlations different
   } else {
     # Raise error that `portfolio` didn't match any options
   }
+  K
 }
 
 #' Risk Weighted Assets
