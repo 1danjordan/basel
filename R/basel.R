@@ -25,29 +25,45 @@ unexpected_loss <- function(PD, EAD, LGD) {
 
 #' Capital Requirement
 #'
-#' @references An Explanatory Note on the Basel II IRB
-#' Risk Weight Functions, Basel Committee on Banking Supervision
+#' Under the advanced approach, banks must calculate the effective
+#' maturity (M)9 and provide their own estimates of PD, LGD and EAD.
+#'
+#' M is calculated as the maximum remaining time (in years) that
+#' the obligor is permitted to take to fully discharge its contractual
+#' obligations, including principal, interest and fees under the
+#' terms of the loan agreement.
+#'
+#' Effective maturity is measured as a Macaulay duration under the
+#' assumption that interest rates are zero.
+#'
+#' Check out [this explanation](https://financetrain.com/effective-maturity-in-basel-ii/)
+#'
+#' @references
+#' An Explanatory Note on the Basel II IRB Risk Weight Functions,
+#' Basel Committee on Banking Supervision
+#'
 #'
 #' @inheritParams expected_loss
+#' @param M Effective Maturity
 #' @param portfolio The type of portfolio
 
-capital_requirement <- function(PD, EAD, LGD, portfolio) {
+capital_requirement <- function(PD, EAD, LGD, M, portfolio) {
 
   if (portfolio == "corporate") {
     # compute correlation
     weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
     R <- 0.12 * weighting + 0.24 * (1 - weighting)
 
-    # maturity adjustment
+    # b is the maturity adjustment
     b <- (0.11852 - 0.05478 * log(PD))^2
 
-    # G() is the inverse normal distribution
-    xyz <- sqrt(1/(1-R)) * G(PD) + sqrt(R/(1-R)) * G(0.999)
+    # In the paper  N() is the normal CDF and G() is the inverse normal CDF
+    systematic_factor <- sqrt(1/(1-R)) * qnorm(PD) + sqrt(R/(1-R)) * qnorm(0.999)
 
-    # b() is ...?
-    maturity_adjustment <- ((1 + (M - 2.5)) * b(PD)) / (1 - 1.5 * b(PD))
+    # this needs a better/more accurate name
+    maturity_adjustment <- ((1 + (M - 2.5)) * b) / (1 - 1.5 * b)
 
-    K <- (LGD * dnorm(xyz) - LGD * PD) * maturity_adjustment
+    K <- (LGD * pnorm(systematic_factor) - LGD * PD) * maturity_adjustment
 
   } else if (portfolio == "SME") {
     weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
