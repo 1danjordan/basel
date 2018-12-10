@@ -1,11 +1,11 @@
 Package: basel
 Type: Package
-Title: Compute Capital Requirements Under Basel III
+Title: Implementation of the Basel III Risk Weight Functions
 Version: 0.1.0
 Author: Daniel Jordan
 Maintainer: The package maintainer <dandermotj@gmail.com>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: Computing capital adequacy is hard. This package implements 
+    the risk weight functions according to Basel.
 License: MIT
 Encoding: UTF-8
 LazyData: true
