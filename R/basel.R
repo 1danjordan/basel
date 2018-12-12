@@ -45,50 +45,56 @@ unexpected_loss <- function(PD, EAD, LGD) {
 #'
 #' @inheritParams expected_loss
 #' @param M Effective Maturity
+#' @param S Annual Sales in millions of Euros
 #' @param portfolio The type of portfolio
 
-capital_requirement <- function(PD, EAD, LGD, M, portfolio) {
+capital_requirement <- function(PD, EAD, LGD, M, S = NULL, portfolio) {
 
-  if (portfolio == "corporate") {
-    # compute correlation
+  # In these functions:
+  #  * R is the correlation
+  #  * b is the maturity adjustment
+  #  * pnorm() refers to N() the normal CDF
+  #  * qnorm() refers to G() the inverse normal CDF
+
+  K <- function(PD, LGD, R) {
+    LGD * pnorm(sqrt(1/(1-R)) * qnorm(PD) + sqrt(R/(1-R)) * qnorm(0.999)) - LGD * PD
+  }
+
+
+  if (portfolio %in% c("corporate", "SME")) {
+
+    # For small and medium enterprises with annual Sales Turnover below €50M,
+    # the correlation may be adjusted. S is the enterprises annual sales
+    if(portfolio == "SME" && !is.null(S)) {
+      R <- 0.12 * weighting + 0.24 * (1 - weighting) - 0.04 * (1 - (S-5)/45)
+    }
+    # Should probably include a an option for Asset Value Correlation
+    # AVC = 1.25 for LGFI
+
     weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
     R <- 0.12 * weighting + 0.24 * (1 - weighting)
 
-    # b is the maturity adjustment
     b <- (0.11852 - 0.05478 * log(PD))^2
 
-    # In the paper  N() is the normal CDF and G() is the inverse normal CDF
-    systematic_factor <- sqrt(1/(1-R)) * qnorm(PD) + sqrt(R/(1-R)) * qnorm(0.999)
-
-    # this needs a better/more accurate name
-    maturity_adjustment <- ((1 + (M - 2.5)) * b) / (1 - 1.5 * b)
-
-    K <- (LGD * pnorm(systematic_factor) - LGD * PD) * maturity_adjustment
-
-  } else if (portfolio == "SME") {
-    weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
-
-    # S is "size adjustment for annual sales between €5M and €50M"
-    # Need to make this ... parameter?
-    R <- 0.12 * weighting + 0.24 * (1 - weighting) - 0.04 * (1 - (S-5)/45)
-
+    K(PD, LGD, R) * ((1 + (M - 2.5)) * b) / (1 - 1.5 * b)
 
   } else if (portfolio == "revolving") {
     R <- 0.04
-
+    K(PD, LGD, R)
 
   } else if (portfolio == "mortgage") {
     R <- 0.15
-
+    K(PD, LGD, R)
 
   } else if (portfolio == "other"){
     # See the Basel explanatory note
     # Correlation is same as Basel but low/high correlations different
   } else {
     # Raise error that `portfolio` didn't match any options
+    stop("Error: you did not pass a valid `portfolio`")
   }
-  K
 }
+
 
 #' Risk Weighted Assets
 #'
