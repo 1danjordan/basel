@@ -1,0 +1,96 @@
+---
+title: "Building an Foundation IRB Model"
+author: "Daniel Jordan"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Building an Foundation IRB Model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## A Simple Foundation IRB Model
+
+This vignette walks through building a basic Foundation Internal Ratings Based Model. The probability of defaults estimated in this model will be used in the "Capital Requirements for a Foundation IRB Model" vignette. While directly related, you do not need to know how to build an IRB model in order to compute capital adequacy and visa versa. It made sense to split them into two vignettes for simplicity's sake.
+
+Ultimately, the goal in this vignette is to build a PD model and output a dataset with four columns:
+
+  * time period
+  * borrower identifier
+  * probability of default
+  * exposure at default
+
+With this we will be able to compute the risk weighted assets and capital adequacy figures for this loan book.
+
+### Lending Club Loan Book Data
+
+To build an IRB model, first we need a loan book. We're lucky enough that the [Lending Club](https://www.kaggle.com/wendykan/lending-club-loan-data) dataset is up on Kaggle. Lending Club is a peer to peer lender that offers unsecured personal loans from \$1,000 to \$40,000 which are funded through crowdsourcing. This is a retail portfolio. This is very handy because lots of people have already [analysed](https://www.kaggle.com/erykwalczak/initial-loan-book-analysis) and [fit models](https://rstudio-pubs-static.s3.amazonaws.com/203258_d20c1a34bc094151a0a1e4f4180c5f6f.html) to this dataset, doing a lot of the hard work for us. 
+
+In an IRB model we are estimating the probability a borrower defaults in the *next 12 months*. This dataset is a loan level dataset with a default/non-default flag. So we need to roll the data up so that each borrower has one row per time period. 
+
+### Loading the Data
+
+```{r}
+library(tidymodels)
+lending_club <- read_csv("lending_club.csv")
+
+head(lending_club) %>% kable()
+```
+
+OK so the data spans from January 2011 to June 2015. There is only one loan per borrower, so we don't really have to roll up accounts to the borrower level because they already are. 
+
+So now we really just need a way to get the time of default, or some DPD variable.
+
+Possibly relevant columns:
+
+  * issue_d - the month the loan was funded
+  * last_pymnt_d - last month payment was received
+  * loan_amnt - the listed amount of the loan applied for by the borrower
+  * loan_status - the current status of the loan
+  * member_id 
+  * next_pymnt_d - next payment date
+  * open_acc - the number of open credit lines in the borrower's credit file
+  * out_prncp - total outstanding amount on the loan
+  * pymnt_plan - payment plan for the loan
+  * term - the number of monthly payments (36 or 60)
+  * mths_since_last_major_derog - months since most recent "90-day or worse" rating
+  * mths_since_last_delinq
+  * grade 
+  * subgrade
+  
+I think using `mths_since_last_major_derog` and `loan_status` we might be able to start putting the pieces together. We'll be able to get the last time the borrower was in default, but not the date of default. If we're going to do this with this dataset, we're going to have to make some simplifying assumuptions around when a default occurs and how long the borrower was in default, if they are not still in default.
+  
+I'm actually not totally sure that there is a way to transform this data into an adequate shape...
+
+
+
+```{r}
+factors <- c(
+  "factor1",
+  "factor2",
+  "factor3"
+)
+
+lending_club <- select(lending_club, one_of(factors))
+
+# Create a recipe with tidymodels
+
+# Resample and fit the model using glmnet
+
+# Plot the AUC and compute the gini
+
+# Predict
+
+```
+
+### Skipping Calibration 
+
+An IRB model requires calibration, bucketing borrowers into a minimum of 6 grades. We won't be calibrating this model though. We will just take the raw PDs outputted by the logistic model. This is fine for our purposes, because really we just want to compute capital rather than get an IRB model passed by the [Joint Supervisory Team](https://www.bankingsupervision.europa.eu/banking/approach/jst/html/index.en.html) (JST).

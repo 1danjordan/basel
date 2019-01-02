@@ -29,37 +29,6 @@ Steps to computing tier 1 capital:
   
 These are actually quite simple steps, but amazingly this process can take up to a year to complete.
 
-## A Simple Foundation IRB Model
-
-To build an IRB model, first we need a loan book. We're lucky enough that the [Lending Club](https://www.kaggle.com/wendykan/lending-club-loan-data) dataset is up on Kaggle. Lending Club is a peer to peer lender that offers unsecured personal loans from \$1,000 to \$40,000 which are funded through crowdsourcing. This is a retail portfolio. This is very handy because lots of people have already [analysed](https://www.kaggle.com/erykwalczak/initial-loan-book-analysis) and [fit models](https://rstudio-pubs-static.s3.amazonaws.com/203258_d20c1a34bc094151a0a1e4f4180c5f6f.html) to this dataset, doing a lot of the hard work for us. 
-
-### Loading the Data
-
-```{r}
-library(tidymodels)
-lending_club <- read_csv("lending_club.csv")
-dim(lending_club)
-
-factors <- c(
-  "factor1",
-  "factor2",
-  "factor3"
-)
-
-lending_club <- select(lending_club, one_of(factors))
-
-# Create a recipe with tidymodels
-
-# Resample and fit the model using glmnet
-
-# Plot the AUC and compute the gini
-
-# Predict
-
-```
-
-There is no calibration of this model, so we are really just computing raw PDs without bucketing borrowers into grades. This is fine for our purposes, because really we just want to compute capital rather than get an IRB model passed by the [Joint Supervisory Team](https://www.bankingsupervision.europa.eu/banking/approach/jst/html/index.en.html) (JST). 
-
 ### Computing Capital 
 
 So now we have a dataset of borrowers, their exposure at each point in time and a PD. Given we are doing a foundation IRB model, we will use the same LGD for every borrower, prescribed by Basel as X. 
