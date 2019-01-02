@@ -48,7 +48,7 @@ unexpected_loss <- function(PD, EAD, LGD) {
 #' @param S Annual Sales in millions of Euros
 #' @param portfolio The type of portfolio
 
-capital_requirement <- function(PD, EAD, LGD, M, S = NULL, portfolio) {
+capital_requirement <- function(PD, LGD, M, S = NULL, portfolio) {
 
   # In these functions:
   #  * R is the correlation

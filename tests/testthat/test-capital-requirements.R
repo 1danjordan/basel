@@ -13,9 +13,10 @@ M <- 2.5
 #  * mortgage
 #  * other
 
-expect_gt(capital_requirement(PD, EAD, LGD, M, portfolio = "corporate"), 0)
-expect_gt(capital_requirement(PD, EAD, LGD, M, portfolio = "SME"), 0)
-expect_gt(capital_requirement(PD, EAD, LGD, M, portfolio = "revolving"), 0)
-expect_gt(capital_requirement(PD, EAD, LGD, M, portfolio = "mortgage"), 0)
+expect_gt(capital_requirement(PD, LGD, M, portfolio = "corporate"), 0)
+expect_gt(capital_requirement(PD, LGD, M, portfolio = "SME"), 0)
+expect_gt(capital_requirement(PD, LGD, M, portfolio = "revolving"), 0)
+expect_gt(capital_requirement(PD, LGD, M, portfolio = "mortgage"), 0)
 # Leave until worked this one out
-# expect_gt(capital_requirement(PD, EAD, LGD, M, portfolio = "other"), 0)
+# expect_gt(capital_requirement(PD, LGD, M, portfolio = "other"), 0)
+expect_error(capital_requirement(PD, LGD, M, portfolio = "gobbledygook"))
