@@ -1,10 +1,10 @@
 ---
-title: "Building an Foundation IRB Model"
+title: "Building an Simplified IRB Model"
 author: "Daniel Jordan"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Building an Foundation IRB Model}
+  %\VignetteIndexEntry{Building an IRB Model}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
