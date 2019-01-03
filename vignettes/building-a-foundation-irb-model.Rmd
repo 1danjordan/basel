@@ -17,16 +17,17 @@ knitr::opts_chunk$set(
 )
 ```
 
-## A Simple Foundation IRB Model
+## A Simplified IRB Model
 
-This vignette walks through building a basic Foundation Internal Ratings Based Model. The probability of defaults estimated in this model will be used in the "Capital Requirements for a Foundation IRB Model" vignette. While directly related, you do not need to know how to build an IRB model in order to compute capital adequacy and visa versa. It made sense to split them into two vignettes for simplicity's sake.
+This vignette walks through building a simplified Internal Ratings Based Model. The probability of defaults estimated in this model will be used in the "Capital Requirements for a Foundation IRB Model" vignette. While directly related, you do not need to know how to build an IRB model in order to compute capital adequacy and visa versa. It made sense to split them into two vignettes for simplicity's sake.
 
-Ultimately, the goal in this vignette is to build a PD model and output a dataset with four columns:
+Ultimately, the goal in this vignette is to build a PD model and an LGD model and output a dataset with four columns:
 
   * time period
   * borrower identifier
   * probability of default
   * exposure at default
+  * loss given default
 
 With this we will be able to compute the risk weighted assets and capital adequacy figures for this loan book.
 
@@ -34,16 +35,145 @@ With this we will be able to compute the risk weighted assets and capital adequa
 
 To build an IRB model, first we need a loan book. We're lucky enough that the [Lending Club](https://www.kaggle.com/wendykan/lending-club-loan-data) dataset is up on Kaggle. Lending Club is a peer to peer lender that offers unsecured personal loans from \$1,000 to \$40,000 which are funded through crowdsourcing. This is a retail portfolio. This is very handy because lots of people have already [analysed](https://www.kaggle.com/erykwalczak/initial-loan-book-analysis) and [fit models](https://rstudio-pubs-static.s3.amazonaws.com/203258_d20c1a34bc094151a0a1e4f4180c5f6f.html) to this dataset, doing a lot of the hard work for us. 
 
+To build an IRB model, first we need a loan book. There is plenty of loan book data to be found online, of varying quality. There is the German credit card data, which was once a favourite of the machine learning community and could be found in the UCI Machine Learning Repository. Then there is the Lending Club data, which is a very popular dataset for kernels on Kaggle. Neither of these datasets were suitable for building an IRB model on because they are a point in time dataset. I settled on using the little known Proper dataset. Prosper, like Lending Club, is a peer-to-peer lending platform. 
+
 In an IRB model we are estimating the probability a borrower defaults in the *next 12 months*. This dataset is a loan level dataset with a default/non-default flag. So we need to roll the data up so that each borrower has one row per time period. 
 
 ### Loading the Data
 
 ```{r}
-library(tidymodels)
-lending_club <- read_csv("lending_club.csv")
+library(tidyverse)
+library(lubridate)
+proper <- read_csv("../data/prosperLoanData.csv")
 
-head(lending_club) %>% kable()
+head(prosper) %>% kable()
 ```
+
+Transforming the data into borrower per period per row format. The table will need these columns:
+
+  * time_period
+  * borrower_id
+  * default
+  * exposure
+  * ...
+
+In this format we can create the a column indicating whether the borrower will be in default in the next 12 months. This will be used as the independent variable in our probability of default model. 
+
+Key columns in Propser data:
+
+  * LoanKey
+  * MemberKey
+  * Term
+  * LoanOriginationDate
+  * LoanOriginalAmount
+  * LoanStatus
+  * ClosedDate
+  * MonthlyLoanPayment
+  * BorrowerAPR
+  * BorrowerRate
+  * EstimatedLoss
+  * LoanCurrentDaysDelinquent
+  * LP_GrossPrincipalLoss
+  
+So to make this work, we're going to have to make some simplifying assumptions. We're going to assume that a borrower never cures after defaulting. The only way a borrower exits default is through charge offs. This means the data *isn't* going to be consistent, but we'll at least try to get it into a working shape. First we're going to 
+
+OK so this is what we have to do. 
+
+  1. Only consider loans that are closed with status Completed, Defaulted or ChargedOff
+  2. Rebuild the loan history of this borrower
+  3. Assume any borrower that completed their loan made every payment perfectly
+  4. Any borrower that defaulted never cured 
+  5. Any borrower that was charged off will go into the LGD model
+
+These assumptions are totally wrong, but they are the only reasonable way to construct this dataset. Once a loan is closed, it has four statuses:
+
+  * Completed
+  * Defaulted
+  * ChargedOff
+  * Cancelled
+  
+There's also 8,191 borrowers with more than one loan...It won't really matter. We just need to create one row per month for each loan. If there is more than one loan per borrower we can just sum the exposure up. 
+
+```{r}
+# This data could have from anywhere from 2.5 - 5 million rows. With 82 columns that's a lot of data for this computer. We'll give it a go anyway. 
+
+prosper <- prosper %>% 
+  select(
+    LoanKey,
+    MemberKey,
+    Term,
+    LoanOriginationDate,
+    LoanOriginalAmount,
+    LoanStatus,
+    ClosedDate,
+    MonthlyLoanPayment,
+    BorrowerAPR,
+    BorrowerRate,
+    EstimatedLoss,
+    LoanCurrentDaysDelinquent,
+    LP_GrossPrincipalLoss
+  ) %>% 
+  filter(LoanStatus %in% c("Completed", "Defaulted", "Chargedoff")) %>% 
+  distinct()
+
+# Just take one loan and we'll build it up from there
+loan <- head(prosper, n = 1)
+
+# I want a function that takes the loan start date, closed date, loan status, 
+# days delinquent
+#
+# We're going to interpolate how much the payment for each month until account close
+
+interpolate_payments <- 
+  function(start_date, end_date, days_delinquent, loan_amount, loan_status) {
+  
+  month_interval <- seq(start_date, end_date, by = "months")
+  term <- length(month_interval) - 1
+  payment_amount <- loan_amount / term
+  
+  if(loan_status == "Completed") {
+    
+    tibble(
+      date = month_interval,
+      outstanding = loan_amount - payment_amount*(0:term)
+    )
+    
+  } else if(loan_status == "Defaulted") {
+
+    delinquency_date <- end_date - days(days_delinquent)
+    # how many payments the Defaulted borrowers actually make
+    payments_made <- 
+      length(seq(start_date, delinquency_date, by = "months")) - 1
+    
+    payments_vec <- c(0:payments_made, rep(0, term-payments_made))
+    
+    tibble(
+      date = month_interval,
+      outstanding = loan_amount - payment_amount*(payments_vec)
+    )
+    
+  } else if( loan_status == "Chargedoff") {
+    
+    delinquency_date <- end_date - days(days_delinquent)
+    # how many payments the Defaulted borrowers actually make
+    payments_made <- 
+      length(seq(start_date, delinquency_date, by = "months")) - 1
+    
+    payments_vec <- c(
+      0:payments_made, 
+      rep(0, term-payments_made-1), 
+      term-payments_made
+    )
+    
+    tibble(
+      date = month_interval,
+      outstanding = loan_amount - payment_amount*(payments_vec)
+    )
+  }
+  
+}
+```
+
 
 OK so the data spans from January 2011 to June 2015. There is only one loan per borrower, so we don't really have to roll up accounts to the borrower level because they already are. 
 
