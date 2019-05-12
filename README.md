@@ -1,51 +1,40 @@
 # Basel
 
-[High level summary of Basel III reforms](https://www.bis.org/bcbs/publ/d424_hlsummary.pdf)
+Basel is an R package for calculating capital requirements according to the Basel Accords. The Basel Committee recognise three major components of risk for a banks that, for which it requires banks to hold regulatory capital for:
 
-Basel is an R package for calculating capital requirements according to Basel III. It's primary purpose is as a learning vehicle for myself. I'm developing it to better understand how capital requirements are calculated, why they are calculated this way and what they are sensitive to.
+  * Credit risk
+  * Market risk 
+  * Operational risk
 
-## Counter Party Credit Risk
+For easy reference to the many papers, discussions and FAQs by the Basel Committee see the [Banking of International Settlements (BIS) publications](https://www.bis.org/list/bcbs/).
 
-You can find out more about SA-CCR [here](https://www.bis.org/publ/bcbs279.htm).
+## Credit Risk
 
-## Asymptotic Single Factor Model
+Three approaches are:
+
+  1. Standardised Approach
+  2. Foundation IRB
+  3. Advanced IRB
 
 See the [explanatory note](https://www.bis.org/bcbs/irbriskweight.pdf) on the IRB risk weights.
 
-The ASFM is the theoretical model that underpins SA-CRR. Plan is to understand this model, it's strengths and weaknesses. 
+## Market Risk 
 
-We want to derive and explain PD, LGD, EAD and the reasoning for certain decisions in the definitiions of those - for example the constant LGD and undrawn amount EAD portion for standardised IRB - where do they come from? Maturity is another example.
+[BIS paper on minimum capital requirements for Market Risk](https://www.bis.org/bcbs/publ/d457.pdf)
 
-Then expected loss and unexpected loss, which comes from the variance of a binomial model.
+### Counter Party Credit Risk
 
-Also look at time horizons and confidence levels. Time horizon of 1 year with 99.9% confidence level? How does this coincide with reality and correlated losses? How sensitive is the capital calculation to time horizon changes or confidence level changes? 
+You can find out more about SA-CCR [here](https://www.bis.org/publ/bcbs279.htm).
 
-Also an opportunity to examine diversification e.g. risk of the portfolio is much less than the sum of the individual risk levels by the UL equation. 
+## Operational Risk
 
-## Economic Capital
-
-How is economic capital defined in this framework?
-
-## Previous Capital Models
-
-There were older models used in the past - what were those and how did they work?
-
-## Alternative Capital Adequacy Frameworks
-
-What might be the next step in SA-CCR? How is capital calculated for banks in other jurisdictions that don't follow Basel III? 
-
-## Rounding Errors
-
-This is probably silly, but I wonder what effect rounding has on total capital. Banks have lots of assets and these are sensitive calculations. My calculator is spitting out the wrong answer by 21,000 for UL because it doesn't have enough decimal places.
-
-# Operational Risk
-
-Three frameworks currently:
+Three approaches currently:
 
   * Basic indicator approach
   * Standardised approach
   * Advanced measurement approach
 
-# Market Risk
+# Data
 
-[This](https://www.bis.org/bcbs/publ/d352.pdf) Basel paper and its [explanatory note](https://www.bis.org/bcbs/publ/d352_note.pdf). Then there is this [BIS page](https://www.bis.org/bcbs/publ/d437.htm) for FAQs.
+Include the results of the EBA Risk Weighted Capital exercise. This contains all the RWAs for each risk type for every participating bank in the EU. Would be a good dataset to include in the package.
+
