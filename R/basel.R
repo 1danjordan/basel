@@ -3,104 +3,127 @@
 #' @param PD  Probability of Default
 #' @param EAD Exposure at Default
 #' @param LGD Loss Given Default
-#'
-#' @example
-#'
 #' @export
+#' @examples
+#' expected_loss(100, 0.05, 0.8)
 
-expected_loss <- function(PD, EAD, LGD) {
-  PD * EAD * LGD
-}
-
-#' Unexpected Loss
-#'
-#' @inheritParams expected_loss
-
-unexpected_loss <- function(PD, EAD, LGD) {
-  lgd_var <- var(LGD)
-  pd_var <- var(PD)
-
-  EAD * sqrt(PD * lgd_var + LGD^2 * pd_var)
+expected_loss <- function(EAD, PD, LGD) {
+  EAD * PD * LGD
 }
 
 #' Capital Requirement
 #'
-#' Under the advanced approach, banks must calculate the effective
-#' maturity (M)9 and provide their own estimates of PD, LGD and EAD.
-#'
-#' M is calculated as the maximum remaining time (in years) that
-#' the obligor is permitted to take to fully discharge its contractual
-#' obligations, including principal, interest and fees under the
-#' terms of the loan agreement.
-#'
-#' Effective maturity is measured as a Macaulay duration under the
-#' assumption that interest rates are zero.
-#'
-#' Check out [this explanation](https://financetrain.com/effective-maturity-in-basel-ii/)
+#' Compute the capital requirement for an exposure
+#' according to its probabiltiy of default, loss given default
+#' and asset class. This capital requirement is not weighted
+#' by exposure amount.
 #'
 #' @references
 #' An Explanatory Note on the Basel II IRB Risk Weight Functions,
 #' Basel Committee on Banking Supervision
 #'
 #'
-#' @inheritParams expected_loss
-#' @param M Effective Maturity
-#' @param S Annual Sales in millions of Euros
 #' @param portfolio The type of portfolio
+#' @inheritParams expected_loss
+#' @export
+#' @examples
+#' capital_requirement("corporate", 0.05, 0.8)
 
-capital_requirement <- function(PD, LGD, M, S = NULL, portfolio) {
+capital_requirement <- function(portfolio, PD, LGD, M = 2.5) {
 
-  # In these functions:
-  #  * R is the correlation
-  #  * b is the maturity adjustment
-  #  * pnorm() refers to N() the normal CDF
-  #  * qnorm() refers to G() the inverse normal CDF
-
-  K <- function(PD, LGD, R) {
-    LGD * pnorm(sqrt(1/(1-R)) * qnorm(PD) + sqrt(R/(1-R)) * qnorm(0.999)) - LGD * PD
-  }
-
-
-  if (portfolio %in% c("corporate", "SME")) {
-
-    # For small and medium enterprises with annual Sales Turnover below €50M,
-    # the correlation may be adjusted. S is the enterprises annual sales
-    if(portfolio == "SME" && !is.null(S)) {
-      R <- 0.12 * weighting + 0.24 * (1 - weighting) - 0.04 * (1 - (S-5)/45)
-    }
-    # Should probably include a an option for Asset Value Correlation
-    # AVC = 1.25 for LGFI
-
-    weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
-    R <- 0.12 * weighting + 0.24 * (1 - weighting)
-
-    b <- (0.11852 - 0.05478 * log(PD))^2
-
-    K(PD, LGD, R) * ((1 + (M - 2.5)) * b) / (1 - 1.5 * b)
-
-  } else if (portfolio == "revolving") {
-    R <- 0.04
-    K(PD, LGD, R)
-
-  } else if (portfolio == "mortgage") {
-    R <- 0.15
-    K(PD, LGD, R)
-
-  } else if (portfolio == "other"){
-    # See the Basel explanatory note
-    # Correlation is same as Basel but low/high correlations different
-  } else {
-    # Raise error that `portfolio` didn't match any options
-    stop("Error: you did not pass a valid `portfolio`")
-  }
+  R <- asset_corr(portfolio, PD)
+  K(PD, LGD, R, M)
 }
 
+#' Capital requirement formula
+#'
+#' @param PD probability of default
+#' @param LGD loss given default
+#' @param R correlation
+#' @param M maturity (defaults to 2.5)
+#' @references
+#' An Explanatory Note on the Basel II IRB Risk Weight Functions,
+#' Basel Committee on Banking Supervision
+#' @export
+#' @examples
+#' R <- asset_corr("mortgage")
+#' K(0.01, 0.8, R)
+
+K <- function(PD, LGD, R, M = 2.5) {
+
+  b <- (0.11852 - 0.05478 * log(PD)) ^ 2
+  maturity_adj <-  ((1 + (M - 2.5)) * b) / (1 - 1.5 * b)
+
+  # worst case default rate via Gaussian copula
+  wcdr <- pnorm(sqrt(1/(1-R)) * qnorm(PD) + sqrt(R/(1-R)) * qnorm(0.999))
+
+  (LGD * (wcdr - PD)) * maturity_adj
+}
 
 #' Risk Weighted Assets
 #'
+#' According to capital of 8% of RWAs ie. 1/12.5 = 0.08
+#'
 #' @param K   Capital Requirement
 #' @param EAD Exposure at Default
+#' @export
+#' @examples
+#' K <- capital_requirement("mortgage", PD = 0.01, LGD = 0.8)
+#' rwa(K, 100)
 
 rwa <- function(K, EAD) {
   K * 12.5 * EAD
+}
+
+#' Get the asset correlations according to asset class
+#'
+#' Basel II defines five asset classes for computing
+#' capital requirements:
+#'
+#' \itemize{
+#'   \item corporate
+#'   \item SME
+#'   \item revolving
+#'   \item mortgage
+#'   \item other
+#' }
+#'
+#' @param class the asset class
+#' @param PD PD (required for 'corporate', 'SME' and 'other')
+#' @export
+#' @examples
+#' asset_corr("corporate", 0.01)
+#' asset_corr("revolving")
+#' asset_corr("mortgage")
+#' asset_corr("other", 0.01)
+
+asset_corr <- function(class, PD = NULL) {
+
+  if (class %in% c("corporate", "SME")) {
+
+    if(is.null(PD)) stop("PD must be supplied 'corporate' and 'SME' classes")
+
+    # technically should include size adjustment in here...
+
+    weighting <- (1 - exp(-50 * PD)) / (1 - exp(-50))
+    0.12 * weighting + 0.24 * (1 - weighting)
+
+  } else if (class == "revolving") {
+
+    0.04
+
+  } else if (class == "mortgage") {
+
+    0.15
+
+  } else if (class == "other"){
+
+    if(is.null(PD)) stop("PD must be supplied 'other' asset classe")
+
+    weighting <- (1 - exp(-35 * PD)) / (1 - exp(-35))
+    0.03 * weighting + 0.16 * (1 - weighting)
+
+  } else {
+    stop(class, " is not a valid asset class")
+  }
 }
